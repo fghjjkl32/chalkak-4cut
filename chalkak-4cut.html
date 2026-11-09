@@ -1,0 +1,1753 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>찰칵 네컷</title>
+  <style>
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: #f2f2f4;
+  color: #17181c;
+  font-family: "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+}
+.top {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  padding: 14px 24px;
+  background: #17181c;
+  color: #fff;
+}
+.top h1 { margin: 0; font-size: 22px; letter-spacing: .02em; }
+.steps { display: flex; gap: 6px; list-style: none; margin: 0; padding: 0; counter-reset: s; }
+.steps li {
+  counter-increment: s;
+  font-size: 13px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  color: #9a9caa;
+  border: 1px solid #33353d;
+}
+.steps li::before { content: counter(s) " "; font-weight: 700; }
+.steps li.on { background: #ffd23f; color: #17181c; border-color: #ffd23f; font-weight: 700; }
+.steps li.done { color: #fff; }
+
+.stage { display: flex; gap: 20px; padding: 20px 24px; align-items: flex-start; }
+#canvasWrap canvas { display: block; border-radius: 10px; background: #fff; max-width: 100%; }
+
+.panel { width: 300px; flex: none; }
+.panel section { display: none; flex-direction: column; gap: 10px; }
+.panel section.on { display: flex; }
+.panel h3 { margin: 8px 0 0; font-size: 13px; color: #5b5f6b; letter-spacing: .04em; }
+.hint { margin: 0; font-size: 13.5px; line-height: 1.55; color: #5b5f6b; }
+
+button { font: inherit; cursor: pointer; }
+button:disabled { opacity: .4; cursor: default; }
+.big {
+  font-size: 19px;
+  font-weight: 700;
+  padding: 16px;
+  border: 0;
+  border-radius: 12px;
+  background: #3355e0;
+  color: #fff;
+}
+.big.alt { background: #17181c; }
+.ghost {
+  padding: 10px;
+  border: 1px solid #c9cad2;
+  border-radius: 10px;
+  background: #fff;
+  color: #17181c;
+}
+.ghost.small { padding: 6px; font-size: 13px; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips button {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid #c9cad2;
+  background: #fff;
+  font-size: 13.5px;
+}
+.chips button.on { background: #17181c; color: #fff; border-color: #17181c; }
+
+.swatches { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+.swatches button { aspect-ratio: 1; border-radius: 6px; border: 2px solid #fff; box-shadow: 0 0 0 1px #c9cad2; }
+.swatches button.on { box-shadow: 0 0 0 2px #3355e0; }
+
+.stickers { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.stickers button {
+  aspect-ratio: 1;
+  padding: 4px;
+  border: 1px solid #c9cad2;
+  border-radius: 8px;
+  background: #fff url() center / contain no-repeat;
+}
+.stickers img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+
+.row { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.row input[type=range] { flex: 1; }
+input[type=text] { font: inherit; padding: 9px 10px; border: 1px solid #c9cad2; border-radius: 8px; }
+.file {
+  display: block;
+  text-align: center;
+  padding: 10px;
+  border: 1px dashed #8d90a0;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+.file input { display: none; }
+</style>
+  <!-- p5.js 1.x (ml5.js는 1.x 기준) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.11.11/p5.min.js"></script>
+  <script src="https://unpkg.com/ml5@1.3.1/dist/ml5.min.js"></script>
+</head>
+<body>
+  <header class="top">
+    <h1>찰칵 네컷</h1>
+    <ol class="steps" id="steps">
+      <li data-s="start">시작</li>
+      <li data-s="frame">프레임</li>
+      <li data-s="shoot">촬영</li>
+      <li data-s="decorate">꾸미기</li>
+      <li data-s="save">저장</li>
+    </ol>
+  </header>
+
+  <main class="stage">
+    <div id="canvasWrap"></div>
+
+    <aside class="panel" id="panel">
+      <!-- 시작 -->
+      <section data-for="start">
+        <p class="hint">노트북 카메라로 네컷 사진을 찍습니다. 사진과 영상은 이 브라우저 안에서만 처리되고 어디에도 전송되지 않습니다.</p>
+        <p class="hint" id="camStatus">카메라를 준비하는 중입니다.</p>
+        <button class="big" id="btnStart">촬영 시작</button>
+      </section>
+
+      <!-- 프레임 고르기 -->
+      <section data-for="frame">
+        <p class="hint">왼쪽에서 레이아웃을 눌러 고르세요. 사진 칸 수만큼 촬영합니다.</p>
+        <label class="row" id="eightRow"><input type="checkbox" id="chkEight"> 2×4에서 8장 따로 찍기</label>
+        <button class="big" id="btnToShoot">이 프레임으로 찍기</button>
+        <button class="ghost" id="btnBackStart">처음으로</button>
+      </section>
+
+      <!-- 촬영 -->
+      <section data-for="shoot">
+        <h3>얼굴 필터</h3>
+        <div class="chips" id="faceChips"></div>
+        <h3>색 필터</h3>
+        <div class="chips" id="colorChips"></div>
+        <label class="row"><input type="checkbox" id="chkGesture" checked> 브이 ✌ 손동작으로 촬영</label>
+        <p class="hint" id="shootHint">촬영 버튼, 스페이스바, 또는 브이 손동작을 1초 유지하면 시작합니다.</p>
+        <button class="big" id="btnShoot">촬영</button>
+        <button class="ghost" id="btnRetake" disabled>고른 컷 다시 찍기</button>
+        <button class="big alt" id="btnToDecorate" disabled>꾸미기로</button>
+      </section>
+
+      <!-- 꾸미기 -->
+      <section data-for="decorate">
+        <h3>프레임 색</h3>
+        <div class="swatches" id="swatches"></div>
+        <label class="row">직접 고르기 <span id="pickerSlot"></span></label>
+        <h3>무늬</h3>
+        <div class="chips" id="patternChips"></div>
+        <h3>배경 이미지</h3>
+        <label class="file">이미지 올리기<input type="file" id="bgFile" accept="image/*"></label>
+        <button class="ghost small" id="btnBgClear">배경 이미지 지우기</button>
+        <h3>문구와 날짜</h3>
+        <input type="text" id="caption" maxlength="30" placeholder="예: 우리 조 화이팅">
+        <label class="row"><input type="checkbox" id="chkDate" checked> 날짜 넣기</label>
+        <h3>스티커</h3>
+        <div class="stickers" id="stickerList"></div>
+        <label class="file">짤 올리기 (자동 누끼)<input type="file" id="stickerFile" accept="image/*"></label>
+        <label class="row">누끼 허용 범위 <input type="range" id="tol" min="0" max="120" value="40"> <b id="tolVal">40</b></label>
+        <p class="hint">스티커를 끌어 옮기고, 오른쪽 아래 동그라미를 끌어 크기와 각도를 바꿉니다. Delete 키로 지웁니다.</p>
+        <button class="big" id="btnToSave">완성</button>
+        <button class="ghost" id="btnBackShoot">촬영으로 돌아가기</button>
+      </section>
+
+      <!-- 저장 -->
+      <section data-for="save">
+        <button class="big" id="btnPNG">사진 저장 (PNG)</button>
+        <button class="big alt" id="btnGIF">움직이는 네컷 (GIF)</button>
+        <button class="big alt" id="btnVideo">동영상 저장 (WebM)</button>
+        <p class="hint" id="saveStatus"></p>
+        <p class="hint">동영상은 PC 브라우저에서 재생됩니다. 메신저로 보낼 때는 GIF가 편합니다.</p>
+        <button class="ghost" id="btnBackDecorate">꾸미기로 돌아가기</button>
+        <button class="ghost" id="btnRestart">처음부터 다시</button>
+      </section>
+    </aside>
+  </main>
+
+  <!-- A: 촬영과 저장 -->
+  <script>
+// ===== camera.js =====
+// A: 카메라, 카운트다운, 연속 촬영, 다시 찍기, 컷마다 움직임 모으기
+
+const CAM_W = 640;
+const CAM_H = 480;
+const CLIP_W = 320;
+const CLIP_H = 240;
+const CLIP_STEP = 100; // 0.1초마다 한 장 (초당 10장)
+const CLIP_MAX = 15; // 1.5초
+
+let video; // 실제 카메라
+let camReady = false;
+let camG; // 좌우 반전, 색 필터, 얼굴 필터까지 입힌 카메라 한 장
+let fakeCam; // 카메라를 쓸 수 없을 때 보여 줄 연습 화면
+
+let shoot = {
+  phase: "idle", // idle, count, flash, done
+  queue: [], // 아직 찍을 컷 번호들
+  cut: -1, // 지금 찍는 컷 번호
+  t0: 0,
+  ring: [], // 최근 1.5초 프레임
+  lastGrab: 0,
+  selected: -1, // 다시 찍으려고 고른 컷
+};
+
+function setupCamera() {
+  camG = createGraphics(CAM_W, CAM_H);
+  fakeCam = createGraphics(CAM_W, CAM_H);
+  video = createCapture(VIDEO, () => {
+    camReady = true;
+    onCameraReady();
+  });
+  video.size(CAM_W, CAM_H);
+  video.hide();
+}
+
+// 카메라가 없을 때: 움직이는 연습 화면 (거울 반전되므로 글자는 미리 뒤집어 그린다)
+function drawFakeCam() {
+  const g = fakeCam;
+  const t = millis() / 1000;
+  g.push();
+  g.background(70, 90, 140);
+  g.noStroke();
+  g.fill(255, 255, 255, 30);
+  for (let i = 0; i < 6; i++) g.circle((i * 140 + t * 40) % 760 - 60, 90 + (i % 2) * 300, 120);
+  const cx = CAM_W / 2 + sin(t * 1.3) * 60;
+  const cy = CAM_H / 2 + 20 + cos(t * 1.7) * 12;
+  g.fill(255, 226, 198);
+  g.ellipse(cx, cy, 190, 210);
+  g.fill(30);
+  g.ellipse(cx - 40, cy - 20, 18, 22);
+  g.ellipse(cx + 40, cy - 20, 18, 22);
+  g.noFill();
+  g.stroke(30);
+  g.strokeWeight(5);
+  g.arc(cx, cy + 30, 70, 40, 0.2, PI - 0.2);
+  g.noStroke();
+  g.fill(255);
+  g.textAlign(CENTER, CENTER);
+  g.textSize(20);
+  g.translate(CAM_W, 0);
+  g.scale(-1, 1);
+  g.text("카메라 없음 · 연습 화면", CAM_W / 2, 36);
+  g.pop();
+  return g;
+}
+
+// 매 프레임 camG를 새로 그린다
+function renderCamera() {
+  const src = camReady ? video : drawFakeCam();
+  camG.push();
+  camG.background(0);
+  applyColorFilter(camG, app.colorFilter);
+  camG.push();
+  camG.translate(CAM_W, 0);
+  camG.scale(-1, 1);
+  camG.image(src, 0, 0, CAM_W, CAM_H);
+  camG.pop();
+  drawFaceFilter(camG, app.faceFilter);
+  camG.pop(); // pop이 색 필터도 되돌린다
+}
+
+function isShooting() {
+  return shoot.phase === "count" || shoot.phase === "flash";
+}
+
+function startShooting(indices) {
+  if (isShooting()) return;
+  shoot.queue = indices.slice();
+  nextCut();
+  refreshShootButtons();
+}
+
+function retake(i) {
+  if (i < 0) return;
+  startShooting([i]);
+}
+
+function nextCut() {
+  if (shoot.queue.length === 0) {
+    shoot.phase = "done";
+    shoot.cut = -1;
+    refreshShootButtons();
+    return;
+  }
+  shoot.cut = shoot.queue.shift();
+  shoot.phase = "count";
+  shoot.t0 = millis();
+  shoot.ring = [];
+  shoot.lastGrab = 0;
+}
+
+function grabClipFrame() {
+  const f = camG.get();
+  f.resize(CLIP_W, CLIP_H);
+  return f;
+}
+
+function updateShooting() {
+  const now = millis();
+  if (shoot.phase === "count") {
+    if (now - shoot.lastGrab >= CLIP_STEP) {
+      shoot.lastGrab = now;
+      shoot.ring.push(grabClipFrame());
+      if (shoot.ring.length > CLIP_MAX) shoot.ring.shift();
+    }
+    if (now - shoot.t0 >= 3000) capture();
+  } else if (shoot.phase === "flash") {
+    if (now - shoot.t0 >= 900) nextCut();
+  }
+}
+
+function capture() {
+  app.shots[shoot.cut] = camG.get();
+  app.clips[shoot.cut] = shoot.ring.concat([grabClipFrame()]);
+  shoot.phase = "flash";
+  shoot.t0 = millis();
+  playShutter();
+}
+
+// 카운트다운 숫자와 플래시 (r: 미리보기 사각형)
+function drawShootOverlay(r) {
+  push();
+  if (shoot.phase === "count") {
+    const left = 3 - floor((millis() - shoot.t0) / 1000);
+    const frac = ((millis() - shoot.t0) % 1000) / 1000;
+    textAlign(CENTER, CENTER);
+    textStyle(BOLD);
+    textSize(170 - frac * 40);
+    fill(255, 255, 255, 230 - frac * 120);
+    stroke(0, 90);
+    strokeWeight(6);
+    text(max(left, 1), r.x + r.w / 2, r.y + r.h / 2);
+  } else if (shoot.phase === "flash") {
+    const a = map(millis() - shoot.t0, 0, 400, 255, 0, true);
+    noStroke();
+    fill(255, a);
+    rect(r.x, r.y, r.w, r.h);
+  }
+  pop();
+}
+</script>
+  <script>
+// ===== export.js =====
+// A: PNG, GIF, 동영상(WebM) 저장
+
+let exportK = 1; // 결과물 대비 캔버스 배율
+let exportTick = 0; // GIF용 프레임 번호
+let exportStart = 0; // 동영상용 시작 시각
+
+function savePNG() {
+  const g = composeLayout(app.shots, 1, true);
+  saveCanvas(g, "chalkak-4cut", "png");
+}
+
+// 움직임을 앞으로 갔다가 되돌아오게(부메랑) 재생할 때의 프레임 번호
+function pingPong(i, len) {
+  if (len <= 1) return 0;
+  const period = len * 2 - 2;
+  const k = i % period;
+  return k < len ? k : period - k;
+}
+
+// i번째 프레임의 칸별 이미지
+function animatedImages(i) {
+  return app.shots.map((shot, c) => {
+    const clip = app.clips[c];
+    if (!clip || clip.length === 0) return shot;
+    return clip[pingPong(i, clip.length)];
+  });
+}
+
+function clipLength() {
+  return max(1, ...app.clips.filter(Boolean).map((c) => c.length));
+}
+
+function beginExport(mode, k) {
+  app.exporting = mode;
+  exportK = k;
+  exportTick = 0;
+  exportStart = millis();
+  stopAllDetectors();
+  const L = outSize();
+  resizeCanvas(round(L.w * k), round(L.h * k));
+  fitDisplay();
+}
+
+function endExport() {
+  app.exporting = null;
+  resizeCanvas(CANVAS_W, CANVAS_H);
+  frameRate(60);
+  fitDisplay();
+  setSaveBusy(false);
+}
+
+// 저장 중에는 캔버스에 결과물만 그린다 (버튼이나 안내 문구가 찍히지 않게)
+function drawExportFrame() {
+  let i;
+  if (app.exporting === "gif") i = exportTick++;
+  else i = floor((millis() - exportStart) / CLIP_STEP);
+  const g = composeLayout(animatedImages(i), exportK, true);
+  image(g, 0, 0, width, height);
+}
+
+async function saveGIF() {
+  const L = outSize();
+  const frames = clipLength() * 2 - 2; // 부메랑 한 바퀴
+  setSaveStatus("GIF를 만드는 중입니다. 10~30초 정도 걸립니다.");
+  beginExport("gif", 400 / L.w);
+  frameRate(10); // GIF 한 장면 = 0.1초
+  try {
+    await saveGif("chalkak-4cut", max(frames, 2), {
+      delay: 0,
+      units: "frames",
+      silent: false,
+      notificationDuration: 0,
+      notificationID: "progressBar",
+    });
+    setSaveStatus("GIF를 저장했습니다.");
+  } catch (e) {
+    console.error(e);
+    setSaveStatus("GIF를 만들지 못했습니다.");
+  } finally {
+    endExport();
+  }
+}
+
+function saveVideo() {
+  if (!window.MediaRecorder || !cnv.elt.captureStream) {
+    setSaveStatus("이 브라우저는 동영상 녹화를 지원하지 않습니다. Chrome에서 열어 주세요.");
+    return;
+  }
+  const L = outSize();
+  beginExport("video", L.w > 600 ? 0.75 : 1);
+  const stream = cnv.elt.captureStream(30);
+  const types = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"];
+  const mimeType = types.find((t) => MediaRecorder.isTypeSupported(t)) || "";
+  const rec = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 6000000 });
+  const chunks = [];
+  rec.ondataavailable = (e) => {
+    if (e.data.size > 0) chunks.push(e.data);
+  };
+  rec.onstop = () => {
+    endExport();
+    const blob = new Blob(chunks, { type: "video/webm" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "chalkak-4cut.webm";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    setSaveStatus("동영상을 저장했습니다.");
+  };
+  setSaveStatus("동영상을 녹화하는 중입니다. 약 6초 걸립니다.");
+  rec.start();
+  // 부메랑 두 바퀴 길이만큼 녹화
+  const ms = max(2, clipLength() * 2 - 2) * CLIP_STEP * 2;
+  setTimeout(() => rec.stop(), max(ms, 3000));
+}
+</script>
+  <!-- B: 제스처, 얼굴 필터, 소리 -->
+  <script>
+// ===== gesture.js =====
+// B: ml5.js handPose로 손동작 인식 (브이 = 촬영, 손바닥 = 다음 화면)
+
+let handPose = null;
+let hands = [];
+let gestureRunning = false;
+
+const HOLD_MS = 1000; // 이만큼 유지해야 인정
+const COOLDOWN_MS = 3000; // 한 번 동작한 뒤 쉬는 시간
+
+let gest = {
+  name: "none",
+  since: 0,
+  progress: 0,
+  coolUntil: 0,
+  pos: null, // 손 위치 (카메라 좌표)
+  handlers: {},
+};
+
+function preloadGesture() {
+  handPose = ml5.handPose({ maxHands: 1, flipped: true });
+}
+
+function startGesture() {
+  if (!handPose || gestureRunning || !camReady) return;
+  handPose.detectStart(video, (r) => (hands = r));
+  gestureRunning = true;
+}
+
+function stopGesture() {
+  if (!handPose || !gestureRunning) return;
+  handPose.detectStop();
+  gestureRunning = false;
+  hands = [];
+  gest.name = "none";
+  gest.progress = 0;
+  gest.pos = null;
+}
+
+function onGesture(name, fn) {
+  gest.handlers[name] = fn;
+}
+
+// 손가락 끝이 둘째 마디보다 손목에서 더 멀면 펴진 것으로 본다
+function fingerOpen(kp, tip, pip) {
+  const w = kp[0];
+  return dist(w.x, w.y, kp[tip].x, kp[tip].y) > dist(w.x, w.y, kp[pip].x, kp[pip].y) * 1.1;
+}
+
+function readGesture() {
+  if (hands.length === 0) return "none";
+  const kp = hands[0].keypoints;
+  if (!kp || kp.length < 21) return "none";
+  const index = fingerOpen(kp, 8, 6);
+  const middle = fingerOpen(kp, 12, 10);
+  const ring = fingerOpen(kp, 16, 14);
+  const pinky = fingerOpen(kp, 20, 18);
+  if (index && middle && !ring && !pinky) return "v";
+  if (index && middle && ring && pinky) return "palm";
+  return "none";
+}
+
+function updateGesture() {
+  const now = millis();
+  const name = readGesture();
+  gest.pos = hands.length ? hands[0].keypoints[9] : null;
+  if (name !== gest.name) {
+    gest.name = name;
+    gest.since = now;
+  }
+  const cooling = now < gest.coolUntil;
+  gest.progress = name === "none" || cooling ? 0 : min(1, (now - gest.since) / HOLD_MS);
+  if (gest.progress >= 1) {
+    gest.coolUntil = now + COOLDOWN_MS;
+    gest.progress = 0;
+    const fn = gest.handlers[name];
+    if (fn) fn();
+  }
+}
+
+// 손 옆에 유지 진행 고리를 그린다 (r: 미리보기 사각형)
+function drawGestureRing(r) {
+  if (!gest.pos) return;
+  const k = r.w / CAM_W;
+  const x = r.x + gest.pos.x * k;
+  const y = r.y + gest.pos.y * k;
+  push();
+  noFill();
+  strokeWeight(8);
+  stroke(255, 255, 255, 90);
+  circle(x, y, 90);
+  if (gest.progress > 0) {
+    stroke(255, 210, 63);
+    arc(x, y, 90, 90, -HALF_PI, -HALF_PI + TWO_PI * gest.progress);
+  }
+  noStroke();
+  fill(255);
+  textAlign(CENTER, CENTER);
+  textSize(30);
+  text(gest.name === "v" ? "✌" : gest.name === "palm" ? "✋" : "", x, y);
+  pop();
+}
+</script>
+  <script>
+// ===== face.js =====
+// B: ml5.js faceMesh로 얼굴을 따라다니는 필터
+
+let faceMesh = null;
+let faces = [];
+let faceRunning = false;
+let faceSm = null; // 떨림을 줄인 좌표
+
+const FACE_FILTERS = {
+  none: "없음",
+  dog: "강아지",
+  glasses: "안경",
+  blush: "볼터치",
+};
+
+function preloadFace() {
+  faceMesh = ml5.faceMesh({ maxFaces: 1, refineLandmarks: false, flipped: true });
+}
+
+function startFace() {
+  if (!faceMesh || faceRunning || !camReady) return;
+  faceMesh.detectStart(video, (r) => (faces = r));
+  faceRunning = true;
+}
+
+function stopFace() {
+  if (!faceMesh || !faceRunning) return;
+  faceMesh.detectStop();
+  faceRunning = false;
+  faces = [];
+  faceSm = null;
+}
+
+function avgPt(a, b) {
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+}
+
+function smoothPt(prev, next) {
+  if (!prev) return next;
+  return { x: lerp(prev.x, next.x, 0.5), y: lerp(prev.y, next.y, 0.5) };
+}
+
+// 필터에 쓰는 점만 골라 부드럽게 만든다
+function facePoints() {
+  if (faces.length === 0) return null;
+  const kp = faces[0].keypoints;
+  if (!kp || kp.length < 468) return null;
+  const raw = {
+    eyeA: avgPt(kp[33], kp[133]),
+    eyeB: avgPt(kp[362], kp[263]),
+    nose: kp[1],
+    forehead: kp[10],
+    cheekA: kp[205],
+    cheekB: kp[425],
+  };
+  const sm = {};
+  for (const k in raw) sm[k] = smoothPt(faceSm && faceSm[k], raw[k]);
+  faceSm = sm;
+  return sm;
+}
+
+function hasFace() {
+  return faces.length > 0;
+}
+
+function drawFaceFilter(g, name) {
+  if (name === "none") return;
+  const p = facePoints();
+  if (!p) return;
+  // 화면 왼쪽 눈과 오른쪽 눈을 정해야 기울기가 뒤집히지 않는다
+  const L = p.eyeA.x < p.eyeB.x ? p.eyeA : p.eyeB;
+  const R = p.eyeA.x < p.eyeB.x ? p.eyeB : p.eyeA;
+  const eyeD = dist(L.x, L.y, R.x, R.y);
+  const ang = atan2(R.y - L.y, R.x - L.x);
+  const mid = avgPt(L, R);
+
+  g.push();
+  if (name === "dog") drawDog(g, mid, p.nose, eyeD, ang);
+  else if (name === "glasses") drawGlasses(g, L, R, mid, eyeD, ang);
+  else if (name === "blush") drawBlush(g, p.cheekA, p.cheekB, eyeD, ang);
+  g.pop();
+}
+
+function drawDog(g, mid, nose, d, ang) {
+  // 귀: 두 눈 가운데에서 위쪽으로
+  g.push();
+  g.translate(mid.x, mid.y);
+  g.rotate(ang);
+  g.noStroke();
+  for (const side of [-1, 1]) {
+    g.push();
+    g.translate(side * d * 0.95, -d * 1.25);
+    g.rotate(side * 0.35);
+    g.fill(120, 78, 50);
+    g.ellipse(0, 0, d * 0.75, d * 1.1);
+    g.fill(240, 170, 170);
+    g.ellipse(0, d * 0.08, d * 0.4, d * 0.7);
+    g.pop();
+  }
+  g.pop();
+  // 코
+  g.push();
+  g.translate(nose.x, nose.y);
+  g.rotate(ang);
+  g.noStroke();
+  g.fill(35);
+  g.ellipse(0, 0, d * 0.5, d * 0.34);
+  g.fill(255, 255, 255, 160);
+  g.ellipse(-d * 0.08, -d * 0.06, d * 0.12, d * 0.07);
+  g.pop();
+}
+
+function drawGlasses(g, L, R, mid, d, ang) {
+  g.push();
+  g.translate(mid.x, mid.y);
+  g.rotate(ang);
+  g.strokeWeight(max(3, d * 0.07));
+  g.stroke(20);
+  g.fill(30, 30, 40, 150);
+  const r = d * 0.78;
+  g.circle(-d / 2, 0, r);
+  g.circle(d / 2, 0, r);
+  g.noFill();
+  g.line(-d / 2 + r / 2, 0, d / 2 - r / 2, 0);
+  g.line(-d / 2 - r / 2, -r * 0.1, -d * 1.05, -r * 0.2);
+  g.line(d / 2 + r / 2, -r * 0.1, d * 1.05, -r * 0.2);
+  g.noStroke();
+  g.fill(255, 255, 255, 120);
+  g.ellipse(-d / 2 - r * 0.18, -r * 0.18, r * 0.22, r * 0.12);
+  g.ellipse(d / 2 - r * 0.18, -r * 0.18, r * 0.22, r * 0.12);
+  g.pop();
+}
+
+function drawBlush(g, a, b, d, ang) {
+  g.noStroke();
+  for (const c of [a, b]) {
+    g.push();
+    g.translate(c.x, c.y);
+    g.rotate(ang);
+    g.fill(255, 120, 150, 90);
+    g.ellipse(0, 0, d * 0.6, d * 0.32);
+    g.fill(255, 120, 150, 70);
+    g.ellipse(0, 0, d * 0.4, d * 0.2);
+    g.pop();
+  }
+}
+</script>
+  <script>
+// ===== sound.js =====
+// B: 셔터 소리 (p5.sound 없이 브라우저 내장 Web Audio로 짧은 소리를 만든다)
+
+let audioCtx = null;
+
+function playShutter() {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const rate = audioCtx.sampleRate;
+    const n = floor(rate * 0.12);
+    const buf = audioCtx.createBuffer(1, n, rate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) {
+      d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3);
+    }
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    const gain = audioCtx.createGain();
+    gain.gain.value = 0.4;
+    src.connect(gain).connect(audioCtx.destination);
+    src.start();
+  } catch (e) {
+    // 소리가 안 나도 촬영은 계속한다
+  }
+}
+</script>
+  <!-- C: 스티커, 누끼, 색 필터 -->
+  <script>
+// ===== cutout.js =====
+// C: 자동 누끼 (가장자리에서부터 배경색과 비슷한 픽셀을 이어서 투명하게)
+
+const CUT_MAX = 500; // 올린 이미지는 이 크기 안으로 줄여서 처리한다
+
+function shrinkImage(img) {
+  const c = img.get();
+  if (c.width > CUT_MAX || c.height > CUT_MAX) {
+    if (c.width >= c.height) c.resize(CUT_MAX, 0);
+    else c.resize(0, CUT_MAX);
+  }
+  return c;
+}
+
+function autoCutout(src, tol) {
+  const img = src.get(); // 원본은 그대로 두고 복사본에 작업
+  img.loadPixels();
+  const w = img.width;
+  const h = img.height;
+  const px = img.pixels;
+
+  // 네 모서리 색의 평균을 배경색으로 본다
+  let br = 0, bg = 0, bb = 0;
+  for (const [x, y] of [[0, 0], [w - 1, 0], [0, h - 1], [w - 1, h - 1]]) {
+    const i = (y * w + x) * 4;
+    br += px[i];
+    bg += px[i + 1];
+    bb += px[i + 2];
+  }
+  br /= 4;
+  bg /= 4;
+  bb /= 4;
+
+  const limit = tol * 2; // 슬라이더 0~120 → 색 거리 0~240
+  const seen = new Uint8Array(w * h);
+  const stack = [];
+  for (let x = 0; x < w; x++) stack.push(x, (h - 1) * w + x);
+  for (let y = 0; y < h; y++) stack.push(y * w, y * w + w - 1);
+
+  while (stack.length > 0) {
+    const p = stack.pop();
+    if (seen[p]) continue;
+    seen[p] = 1;
+    const i = p * 4;
+    const alreadyClear = px[i + 3] < 10;
+    if (!alreadyClear) {
+      const dr = px[i] - br, dg = px[i + 1] - bg, db = px[i + 2] - bb;
+      if (Math.sqrt(dr * dr + dg * dg + db * db) > limit) continue;
+    }
+    px[i + 3] = 0;
+    const x = p % w;
+    const y = (p - x) / w;
+    if (x > 0) stack.push(p - 1);
+    if (x < w - 1) stack.push(p + 1);
+    if (y > 0) stack.push(p - w);
+    if (y < h - 1) stack.push(p + w);
+  }
+  img.updatePixels();
+  return trimTransparent(img);
+}
+
+// 투명한 테두리를 잘라 스티커 손잡이가 그림에 딱 붙게 한다
+function trimTransparent(img) {
+  img.loadPixels();
+  const w = img.width, h = img.height, px = img.pixels;
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (px[(y * w + x) * 4 + 3] > 10) {
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+    }
+  }
+  if (x1 < 0) return img; // 전부 지워졌으면 그대로 돌려준다
+  return img.get(x0, y0, x1 - x0 + 1, y1 - y0 + 1);
+}
+</script>
+  <script>
+// ===== stickers.js =====
+// C: 스티커 (기본 스티커, 짤 업로드, 옮기기, 크기와 회전, 삭제)
+
+const STK_BASE = 260; // 결과물 기준 스티커 기본 너비
+let defaultStickers = [];
+let selectedSticker = -1;
+let stkDrag = null;
+
+function addSticker(img, orig) {
+  const L = outSize();
+  const w = STK_BASE;
+  const h = (STK_BASE * img.height) / img.width;
+  app.stickers.push({ img, orig, x: L.w / 2, y: L.h * 0.35, s: 1, a: 0, w, h });
+  selectedSticker = app.stickers.length - 1;
+}
+
+function drawStickers(g) {
+  g.push();
+  g.imageMode(CENTER);
+  for (const s of app.stickers) {
+    g.push();
+    g.translate(s.x, s.y);
+    g.rotate(s.a);
+    g.image(s.img, 0, 0, s.w * s.s, s.h * s.s);
+    g.pop();
+  }
+  g.pop();
+}
+
+// 고른 스티커의 테두리와 손잡이 (캔버스 좌표로 그린다)
+function drawStickerHandles(view) {
+  const s = app.stickers[selectedSticker];
+  if (!s) return;
+  push();
+  translate(view.x + s.x * view.k, view.y + s.y * view.k);
+  rotate(s.a);
+  const w = s.w * s.s * view.k;
+  const h = s.h * s.s * view.k;
+  noFill();
+  stroke(51, 85, 224);
+  strokeWeight(2);
+  drawingContext.setLineDash([6, 4]);
+  rect(-w / 2, -h / 2, w, h);
+  drawingContext.setLineDash([]);
+  fill(255);
+  circle(w / 2, h / 2, 18);
+  pop();
+}
+
+// 결과물 좌표 (mx, my)를 스티커 안쪽 좌표로 바꾼다
+function toLocal(s, mx, my) {
+  const dx = mx - s.x;
+  const dy = my - s.y;
+  const c = cos(-s.a);
+  const n = sin(-s.a);
+  return { x: dx * c - dy * n, y: dx * n + dy * c };
+}
+
+function stickerPressed(mx, my, viewK) {
+  const handleR = 14 / viewK;
+  // 고른 스티커의 손잡이부터 확인
+  const cur = app.stickers[selectedSticker];
+  if (cur) {
+    const p = toLocal(cur, mx, my);
+    if (dist(p.x, p.y, (cur.w * cur.s) / 2, (cur.h * cur.s) / 2) < handleR) {
+      stkDrag = {
+        mode: "scale",
+        s0: cur.s,
+        a0: cur.a,
+        d0: dist(cur.x, cur.y, mx, my),
+        ang0: atan2(my - cur.y, mx - cur.x),
+      };
+      return;
+    }
+  }
+  // 위에 있는 스티커부터 확인
+  for (let i = app.stickers.length - 1; i >= 0; i--) {
+    const s = app.stickers[i];
+    const p = toLocal(s, mx, my);
+    if (abs(p.x) <= (s.w * s.s) / 2 && abs(p.y) <= (s.h * s.s) / 2) {
+      selectedSticker = i;
+      stkDrag = { mode: "move", ox: mx - s.x, oy: my - s.y };
+      return;
+    }
+  }
+  selectedSticker = -1;
+  stkDrag = null;
+}
+
+function stickerDragged(mx, my) {
+  const s = app.stickers[selectedSticker];
+  if (!s || !stkDrag) return;
+  if (stkDrag.mode === "move") {
+    s.x = mx - stkDrag.ox;
+    s.y = my - stkDrag.oy;
+  } else {
+    const d = dist(s.x, s.y, mx, my);
+    s.s = constrain((stkDrag.s0 * d) / max(stkDrag.d0, 1), 0.15, 6);
+    s.a = stkDrag.a0 + atan2(my - s.y, mx - s.x) - stkDrag.ang0;
+  }
+}
+
+function stickerReleased() {
+  stkDrag = null;
+}
+
+function deleteSelectedSticker() {
+  if (selectedSticker < 0) return;
+  app.stickers.splice(selectedSticker, 1);
+  selectedSticker = -1;
+}
+
+// 누끼 허용 범위를 바꾸면 고른 스티커(올린 짤)를 다시 자른다
+function recutSelected(tol) {
+  const s = app.stickers[selectedSticker];
+  if (!s || !s.orig) return;
+  s.img = autoCutout(s.orig, tol);
+  s.h = (s.w * s.img.height) / s.img.width;
+}
+
+// 기본 스티커 8개를 도형으로 그려 만든다
+function makeDefaultStickers() {
+  const makers = [
+    (g) => { // 하트
+      g.fill(255, 90, 120);
+      g.beginShape();
+      for (let t = 0; t < TWO_PI; t += 0.05) {
+        const x = 16 * pow(sin(t), 3);
+        const y = -(13 * cos(t) - 5 * cos(2 * t) - 2 * cos(3 * t) - cos(4 * t));
+        g.vertex(100 + x * 5.6, 104 + y * 5.6);
+      }
+      g.endShape(CLOSE);
+    },
+    (g) => { // 별
+      g.fill(255, 210, 63);
+      g.stroke(255, 160, 0);
+      g.strokeWeight(6);
+      g.beginShape();
+      for (let i = 0; i < 10; i++) {
+        const r = i % 2 === 0 ? 88 : 38;
+        const a = -HALF_PI + (i * PI) / 5;
+        g.vertex(100 + r * cos(a), 106 + r * sin(a));
+      }
+      g.endShape(CLOSE);
+    },
+    (g) => { // 왕관
+      g.fill(255, 200, 40);
+      g.stroke(200, 140, 0);
+      g.strokeWeight(5);
+      g.beginShape();
+      g.vertex(25, 150); g.vertex(25, 70); g.vertex(62, 110); g.vertex(100, 50);
+      g.vertex(138, 110); g.vertex(175, 70); g.vertex(175, 150);
+      g.endShape(CLOSE);
+      g.noStroke();
+      g.fill(255, 90, 120);
+      g.circle(100, 120, 22);
+    },
+    (g) => { // 반짝이
+      g.fill(120, 200, 255);
+      for (const [x, y, r] of [[100, 100, 70], [45, 45, 28], [160, 150, 24]]) {
+        g.beginShape();
+        for (let i = 0; i < 8; i++) {
+          const rr = i % 2 === 0 ? r : r * 0.22;
+          const a = (i * PI) / 4;
+          g.vertex(x + rr * cos(a), y + rr * sin(a));
+        }
+        g.endShape(CLOSE);
+      }
+    },
+    (g) => { // 말풍선 ㅋㅋ
+      g.fill(255);
+      g.stroke(30);
+      g.strokeWeight(6);
+      g.ellipse(100, 88, 170, 120);
+      g.triangle(60, 135, 50, 180, 95, 145);
+      g.noStroke();
+      g.fill(30);
+      g.textAlign(CENTER, CENTER);
+      g.textStyle(BOLD);
+      g.textSize(54);
+      g.text("ㅋㅋ", 100, 90);
+    },
+    (g) => { // LOVE
+      g.textAlign(CENTER, CENTER);
+      g.textStyle(BOLD);
+      g.textSize(64);
+      g.stroke(255);
+      g.strokeWeight(10);
+      g.fill(255, 90, 160);
+      g.text("LOVE", 100, 100);
+    },
+    (g) => { // 리본
+      g.fill(255, 120, 170);
+      g.triangle(100, 100, 20, 55, 20, 145);
+      g.triangle(100, 100, 180, 55, 180, 145);
+      g.fill(230, 70, 130);
+      g.circle(100, 100, 40);
+    },
+    (g) => { // 고양이 귀
+      g.fill(60);
+      g.triangle(20, 160, 50, 40, 90, 140);
+      g.triangle(180, 160, 150, 40, 110, 140);
+      g.fill(255, 170, 190);
+      g.triangle(38, 140, 52, 75, 74, 132);
+      g.triangle(162, 140, 148, 75, 126, 132);
+    },
+  ];
+  defaultStickers = makers.map((fn) => {
+    const g = createGraphics(200, 200);
+    g.pixelDensity(1);
+    g.clear();
+    g.noStroke();
+    fn(g);
+    const img = trimTransparent(g.get());
+    g.remove();
+    return img;
+  });
+}
+</script>
+  <script>
+// ===== filters.js =====
+// C: 색 필터 (캔버스 내장 filter를 써서 미리보기에서도 빠르다)
+
+const COLOR_FILTERS = {
+  none: { label: "원본", css: "none" },
+  gray: { label: "흑백", css: "grayscale(1) contrast(1.08)" },
+  sepia: { label: "세피아", css: "sepia(0.85) contrast(1.05)" },
+  warm: { label: "따뜻한 톤", css: "sepia(0.25) saturate(1.35) brightness(1.05)" },
+  cool: { label: "차가운 톤", css: "saturate(0.85) hue-rotate(12deg) brightness(1.06)" },
+};
+
+// g에 이후 그리는 그림에 색 필터를 건다. g.pop()을 하면 원래대로 돌아간다.
+function applyColorFilter(g, name) {
+  const f = COLOR_FILTERS[name] || COLOR_FILTERS.none;
+  g.drawingContext.filter = f.css;
+}
+</script>
+  <!-- D: 프레임, 화면, 메인 -->
+  <script>
+// ===== frame.js =====
+// D: 레이아웃 계산과 결과물 합치기 (프레임 색, 무늬, 배경 이미지, 날짜와 문구)
+
+const LAYOUTS = {
+  "1x4": { label: "1×4", w: 600, h: 1800, cols: 1, rows: 4, shots: 4 },
+  "2x3": { label: "2×3", w: 1200, h: 1800, cols: 2, rows: 3, shots: 6 },
+  "2x4": { label: "2×4", w: 1200, h: 1800, cols: 2, rows: 4, shots: 4 },
+};
+const MARGIN = 36;
+const GAP = 18;
+const FOOTER = 160;
+
+function outSize(key = app.layout) {
+  return LAYOUTS[key];
+}
+
+// 사진 칸 위치. 열 단위로 번호를 매긴다 (2×4에서 i % 4가 같은 사진이 되도록)
+function cellRects(key = app.layout) {
+  const L = LAYOUTS[key];
+  const colGap = key === "2x4" ? MARGIN * 2 : GAP; // 2×4는 가운데를 잘라 나눠 갖는다
+  const cw = (L.w - 2 * MARGIN - (L.cols - 1) * colGap) / L.cols;
+  const ch = (L.h - MARGIN - FOOTER - (L.rows - 1) * GAP) / L.rows;
+  const rects = [];
+  for (let c = 0; c < L.cols; c++) {
+    for (let r = 0; r < L.rows; r++) {
+      rects.push({ x: MARGIN + c * (cw + colGap), y: MARGIN + r * (ch + GAP), w: cw, h: ch });
+    }
+  }
+  return rects;
+}
+
+function shotCount() {
+  if (app.layout === "2x4" && app.eight) return 8;
+  return LAYOUTS[app.layout].shots;
+}
+
+// 칸 i에 들어갈 사진 번호
+function cellImageIndex(i) {
+  if (app.layout === "2x4" && !app.eight) return i % 4;
+  return i;
+}
+
+// 사진을 칸 비율에 맞춰 가운데만 잘라 넣는다
+function drawCover(g, img, r) {
+  const sr = img.width / img.height;
+  const dr = r.w / r.h;
+  let sw = img.width, sh = img.height, sx = 0, sy = 0;
+  if (sr > dr) {
+    sw = img.height * dr;
+    sx = (img.width - sw) / 2;
+  } else {
+    sh = img.width / dr;
+    sy = (img.height - sh) / 2;
+  }
+  g.image(img, r.x, r.y, r.w, r.h, sx, sy, sw, sh);
+}
+
+function isLightColor(hex) {
+  const c = color(hex);
+  const lum = (0.299 * red(c) + 0.587 * green(c) + 0.114 * blue(c)) / 255;
+  return lum > 0.6;
+}
+
+function drawPattern(g, L, kind, light) {
+  if (kind === "none") return;
+  g.push();
+  g.noStroke();
+  g.fill(light ? color(0, 0, 0, 28) : color(255, 255, 255, 40));
+  if (kind === "dot") {
+    for (let y = 20; y < L.h; y += 44) {
+      for (let x = (y / 44) % 2 ? 42 : 20; x < L.w; x += 44) g.circle(x, y, 12);
+    }
+  } else if (kind === "stripe") {
+    g.stroke(light ? color(0, 0, 0, 28) : color(255, 255, 255, 40));
+    g.strokeWeight(14);
+    for (let x = -L.h; x < L.w; x += 48) g.line(x, 0, x + L.h, L.h);
+  } else if (kind === "check") {
+    for (let y = 0; y < L.h; y += 40) {
+      for (let x = 0; x < L.w; x += 40) {
+        if ((x / 40 + y / 40) % 2 === 0) g.rect(x, y, 40, 40);
+      }
+    }
+  }
+  g.pop();
+}
+
+function todayText() {
+  return `${year()}.${nf(month(), 2)}.${nf(day(), 2)}`;
+}
+
+function drawFooter(g, L) {
+  const light = !app.frame.bgImage && isLightColor(app.frame.color);
+  const centers = app.layout === "2x4" ? [L.w / 4, (L.w * 3) / 4] : [L.w / 2];
+  const top = L.h - FOOTER;
+  g.push();
+  g.textAlign(CENTER, CENTER);
+  g.noStroke();
+  if (app.frame.bgImage) {
+    g.stroke(0, 140);
+    g.strokeWeight(4);
+  }
+  g.fill(light ? 25 : 250);
+  for (const cx of centers) {
+    const hasText = app.frame.text.trim().length > 0;
+    if (hasText) {
+      g.textStyle(BOLD);
+      g.textSize(42);
+      g.text(app.frame.text, cx, top + (app.frame.showDate ? 48 : 66));
+    }
+    if (app.frame.showDate) {
+      g.textStyle(NORMAL);
+      g.textSize(hasText ? 26 : 40);
+      g.text(todayText(), cx, top + (hasText ? 98 : 66));
+    }
+    g.textStyle(BOLD);
+    g.textSize(16);
+    g.text("CHALKAK 4CUT", cx, L.h - 22);
+  }
+  g.pop();
+}
+
+// 합친 결과물을 담을 그래픽은 배율마다 하나씩 만들어 재사용한다
+const compCache = {};
+
+function composeLayout(images, k, withStickers) {
+  const L = outSize();
+  const W = max(1, round(L.w * k));
+  const H = max(1, round(L.h * k));
+  const key = String(k);
+  let g = compCache[key];
+  if (!g || g.width !== W || g.height !== H) {
+    if (g) g.remove();
+    g = createGraphics(W, H);
+    g.pixelDensity(1);
+    compCache[key] = g;
+  }
+  g.push();
+  g.clear();
+  g.scale(k);
+  const light = isLightColor(app.frame.color);
+  g.background(app.frame.color);
+  if (app.frame.bgImage) drawCover(g, app.frame.bgImage, { x: 0, y: 0, w: L.w, h: L.h });
+  drawPattern(g, L, app.frame.pattern, light && !app.frame.bgImage);
+
+  cellRects().forEach((r, i) => {
+    const img = images[cellImageIndex(i)];
+    if (img) {
+      drawCover(g, img, r);
+    } else {
+      g.noStroke();
+      g.fill(light ? 215 : 60);
+      g.rect(r.x, r.y, r.w, r.h);
+      g.fill(light ? 150 : 140);
+      g.textAlign(CENTER, CENTER);
+      g.textSize(60);
+      g.text(cellImageIndex(i) + 1, r.x + r.w / 2, r.y + r.h / 2);
+    }
+  });
+  drawFooter(g, L);
+  if (withStickers) drawStickers(g);
+  g.pop();
+  return g;
+}
+</script>
+  <script>
+// ===== ui.js =====
+// D: 화면 전환, 버튼과 패널, 화면별 그리기
+
+const SCREENS = ["start", "frame", "shoot", "decorate", "save"];
+const SWATCHES = ["#111111", "#ffffff", "#ffd23f", "#ff8fab", "#8ecae6", "#b5e48c", "#3355e0", "#7b2cbf"];
+const PATTERNS = { none: "없음", dot: "물방울", stripe: "줄무늬", check: "체크" };
+const PREVIEW = { x: 20, y: 50, w: 720, h: 540 }; // 촬영 미리보기 자리
+let decoView = { x: 0, y: 0, k: 1 };
+let colorPicker;
+
+const $ = (id) => document.getElementById(id);
+
+function setupUI() {
+  $("btnStart").onclick = () => goTo("frame");
+  $("btnBackStart").onclick = () => goTo("start");
+  $("btnToShoot").onclick = () => goTo("shoot");
+  $("chkEight").onchange = (e) => (app.eight = e.target.checked);
+
+  $("btnShoot").onclick = onShootButton;
+  $("btnRetake").onclick = () => retake(shoot.selected);
+  $("btnToDecorate").onclick = () => goTo("decorate");
+  $("chkGesture").onchange = (e) => (app.gestureOn = e.target.checked);
+
+  makeChips("faceChips", FACE_FILTERS, () => app.faceFilter, (v) => (app.faceFilter = v));
+  makeChips("colorChips", mapLabels(COLOR_FILTERS), () => app.colorFilter, (v) => (app.colorFilter = v));
+  makeChips("patternChips", PATTERNS, () => app.frame.pattern, (v) => (app.frame.pattern = v));
+
+  // 프레임 색
+  const sw = $("swatches");
+  SWATCHES.forEach((c) => {
+    const b = document.createElement("button");
+    b.style.background = c;
+    b.title = c;
+    b.onclick = () => {
+      app.frame.color = c;
+      colorPicker.value(c);
+      markSwatch();
+    };
+    sw.appendChild(b);
+  });
+  colorPicker = createColorPicker(app.frame.color);
+  colorPicker.parent("pickerSlot");
+  colorPicker.input(() => {
+    app.frame.color = colorPicker.value();
+    markSwatch();
+  });
+  markSwatch();
+
+  $("caption").oninput = (e) => (app.frame.text = e.target.value);
+  $("chkDate").onchange = (e) => (app.frame.showDate = e.target.checked);
+  $("bgFile").onchange = (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    loadImage(URL.createObjectURL(f), (img) => (app.frame.bgImage = shrinkImage(img)));
+    e.target.value = "";
+  };
+  $("btnBgClear").onclick = () => (app.frame.bgImage = null);
+
+  // 스티커
+  const list = $("stickerList");
+  defaultStickers.forEach((img) => {
+    const b = document.createElement("button");
+    const im = document.createElement("img");
+    im.src = img.canvas.toDataURL();
+    b.appendChild(im);
+    b.onclick = () => addSticker(img, null);
+    list.appendChild(b);
+  });
+  $("stickerFile").onchange = (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    loadImage(URL.createObjectURL(f), (img) => {
+      const small = shrinkImage(img);
+      addSticker(autoCutout(small, Number($("tol").value)), small);
+    });
+    e.target.value = "";
+  };
+  $("tol").oninput = (e) => ($("tolVal").textContent = e.target.value);
+  $("tol").onchange = (e) => recutSelected(Number(e.target.value));
+
+  $("btnToSave").onclick = () => goTo("save");
+  $("btnBackShoot").onclick = () => goTo("shoot");
+
+  // 저장
+  $("btnPNG").onclick = () => {
+    savePNG();
+    setSaveStatus("사진을 저장했습니다.");
+  };
+  $("btnGIF").onclick = () => {
+    setSaveBusy(true);
+    saveGIF();
+  };
+  $("btnVideo").onclick = () => {
+    setSaveBusy(true);
+    saveVideo();
+  };
+  $("btnBackDecorate").onclick = () => goTo("decorate");
+  $("btnRestart").onclick = () => {
+    app.stickers = [];
+    selectedSticker = -1;
+    goTo("start");
+  };
+
+  // 손동작
+  onGesture("v", () => {
+    if (app.screen !== "shoot") return;
+    if (shoot.phase === "idle") onShootButton();
+    else if (shoot.phase === "done" && shoot.selected >= 0) retake(shoot.selected);
+  });
+  onGesture("palm", () => {
+    if (app.screen === "shoot" && shoot.phase === "done" && allShot()) goTo("decorate");
+  });
+
+  if (typeof ml5 === "undefined") {
+    $("chkGesture").checked = false;
+    $("chkGesture").disabled = true;
+    app.gestureOn = false;
+    $("camStatus").textContent += " 인식 라이브러리를 불러오지 못해 제스처와 얼굴 필터는 쓸 수 없습니다.";
+  }
+  setTimeout(() => {
+    if (!camReady) {
+      $("camStatus").textContent =
+        "카메라를 쓸 수 없어 연습 화면으로 진행합니다. 주소창의 카메라 아이콘에서 권한을 허용한 뒤 새로고침하면 실제 카메라로 찍습니다.";
+    }
+  }, 5000);
+  fitDisplay();
+}
+
+function mapLabels(obj) {
+  const out = {};
+  for (const k in obj) out[k] = obj[k].label;
+  return out;
+}
+
+function makeChips(id, labels, get, set) {
+  const box = $(id);
+  for (const k in labels) {
+    const b = document.createElement("button");
+    b.textContent = labels[k];
+    b.dataset.v = k;
+    b.onclick = () => {
+      set(k);
+      [...box.children].forEach((c) => c.classList.toggle("on", c.dataset.v === get()));
+    };
+    box.appendChild(b);
+  }
+  [...box.children].forEach((c) => c.classList.toggle("on", c.dataset.v === get()));
+}
+
+function markSwatch() {
+  [...$("swatches").children].forEach((b) => b.classList.toggle("on", b.title.toLowerCase() === app.frame.color.toLowerCase()));
+}
+
+function onCameraReady() {
+  $("camStatus").textContent = "카메라가 준비되었습니다.";
+}
+
+function goTo(screen) {
+  const prev = app.screen;
+  app.screen = screen;
+  document.querySelectorAll(".panel section").forEach((s) => s.classList.toggle("on", s.dataset.for === screen));
+  const idx = SCREENS.indexOf(screen);
+  document.querySelectorAll("#steps li").forEach((li) => {
+    const i = SCREENS.indexOf(li.dataset.s);
+    li.classList.toggle("on", i === idx);
+    li.classList.toggle("done", i < idx);
+  });
+  if (screen === "frame") $("eightRow").style.display = app.layout === "2x4" ? "flex" : "none";
+  if (screen === "shoot" && (prev === "frame" || app.shots.length !== shotCount())) resetShots();
+  if (screen !== "decorate") selectedSticker = -1;
+  refreshShootButtons();
+}
+
+function resetShots() {
+  app.shots = new Array(shotCount()).fill(null);
+  app.clips = [];
+  shoot.phase = "idle";
+  shoot.queue = [];
+  shoot.selected = -1;
+}
+
+function allShot() {
+  return app.shots.length === shotCount() && app.shots.every(Boolean);
+}
+
+function onShootButton() {
+  if (isShooting()) return;
+  if (shoot.phase === "done") resetShots();
+  startShooting([...Array(shotCount()).keys()]);
+}
+
+function refreshShootButtons() {
+  const done = shoot.phase === "done";
+  $("btnShoot").disabled = isShooting();
+  $("btnShoot").textContent = done ? "전체 다시 찍기" : `촬영 (${shotCount()}장)`;
+  $("btnRetake").disabled = !(done && shoot.selected >= 0);
+  $("btnToDecorate").disabled = !(done && allShot());
+}
+
+function setSaveStatus(msg) {
+  $("saveStatus").textContent = msg;
+}
+
+function setSaveBusy(b) {
+  ["btnPNG", "btnGIF", "btnVideo", "btnBackDecorate", "btnRestart"].forEach((id) => ($(id).disabled = b));
+}
+
+// 저장 중에는 캔버스 크기가 바뀌므로 화면에 보이는 높이를 고정한다
+function fitDisplay() {
+  if (!cnv) return;
+  cnv.elt.style.height = CANVAS_H + "px";
+  cnv.elt.style.width = "auto";
+}
+
+function stopAllDetectors() {
+  stopGesture();
+  stopFace();
+}
+
+function manageDetectors() {
+  const wantGesture = app.screen === "shoot" && app.gestureOn && !isShooting();
+  if (wantGesture) startGesture();
+  else stopGesture();
+  if (app.screen === "shoot" && app.faceFilter !== "none") startFace();
+  else stopFace();
+}
+
+// ---------- 화면별 그리기 ----------
+
+function drawStartScreen() {
+  renderCamera();
+  background(23, 24, 28);
+  image(camG, 120, 50, 720, 540);
+  noStroke();
+  fill(0, 150);
+  rect(120, 230, 720, 180);
+  fill(255);
+  textAlign(CENTER, CENTER);
+  textStyle(BOLD);
+  textSize(72);
+  text("찰칵 네컷", width / 2, 300);
+  textStyle(NORMAL);
+  textSize(20);
+  text("브이 ✌ 한 번이면 촬영 시작. 꾸미고, 움직이는 네컷으로 저장하세요.", width / 2, 365);
+}
+
+function layoutCardRects() {
+  return Object.keys(LAYOUTS).map((key, i) => ({ key, x: 60 + i * 300, y: 90, w: 240, h: 470 }));
+}
+
+function drawFramePickScreen() {
+  background(245, 245, 248);
+  fill(25);
+  noStroke();
+  textAlign(CENTER, CENTER);
+  textStyle(BOLD);
+  textSize(26);
+  text("레이아웃을 고르세요", width / 2, 50);
+  for (const c of layoutCardRects()) {
+    const L = LAYOUTS[c.key];
+    const on = app.layout === c.key;
+    const hover = mouseX > c.x && mouseX < c.x + c.w && mouseY > c.y && mouseY < c.y + c.h;
+    stroke(on ? color(51, 85, 224) : hover ? 160 : 215);
+    strokeWeight(on ? 4 : 2);
+    fill(255);
+    rect(c.x, c.y, c.w, c.h, 14);
+    // 작은 미리보기
+    const k = min((c.w - 60) / L.w, (c.h - 110) / L.h);
+    const ox = c.x + (c.w - L.w * k) / 2;
+    const oy = c.y + 24;
+    noStroke();
+    fill(app.frame.color);
+    rect(ox, oy, L.w * k, L.h * k, 4);
+    fill(isLightColor(app.frame.color) ? 200 : 90);
+    cellRects(c.key).forEach((r) => rect(ox + r.x * k, oy + r.y * k, r.w * k, r.h * k));
+    fill(25);
+    textStyle(BOLD);
+    textSize(22);
+    text(L.label, c.x + c.w / 2, c.y + c.h - 62);
+    textStyle(NORMAL);
+    textSize(15);
+    fill(90);
+    const n = c.key === "2x4" ? (app.eight ? "8장 따로" : "4장 · 두 줄로 나눠 갖기") : `${L.shots}장`;
+    text(n, c.x + c.w / 2, c.y + c.h - 34);
+  }
+}
+
+function pickLayoutAt(mx, my) {
+  for (const c of layoutCardRects()) {
+    if (mx > c.x && mx < c.x + c.w && my > c.y && my < c.y + c.h) {
+      app.layout = c.key;
+      $("eightRow").style.display = c.key === "2x4" ? "flex" : "none";
+    }
+  }
+}
+
+function thumbRects() {
+  const n = shotCount();
+  const rects = [];
+  for (let i = 0; i < n; i++) {
+    if (n <= 4) rects.push({ x: 760, y: 50 + i * 145, w: 180, h: 135 });
+    else rects.push({ x: 760 + (i % 2) * 95, y: 50 + floor(i / 2) * 74, w: 85, h: 64 });
+  }
+  return rects;
+}
+
+function pickThumbAt(mx, my) {
+  if (shoot.phase !== "done") return;
+  thumbRects().forEach((r, i) => {
+    if (mx > r.x && mx < r.x + r.w && my > r.y && my < r.y + r.h) {
+      shoot.selected = shoot.selected === i ? -1 : i;
+    }
+  });
+  refreshShootButtons();
+}
+
+function shootMessage() {
+  const n = shotCount();
+  if (shoot.phase === "count" || shoot.phase === "flash") return `${n}장 중 ${shoot.cut + 1}번째 컷`;
+  if (shoot.phase === "done") {
+    if (shoot.selected >= 0) return `${shoot.selected + 1}번째 컷을 다시 찍으려면 ✌ 또는 "고른 컷 다시 찍기"`;
+    return "다 찍었습니다. 컷을 눌러 다시 찍거나, ✋ 손바닥을 1초 보여 꾸미기로 넘어가세요.";
+  }
+  return "준비되면 촬영 버튼, 스페이스바, 또는 ✌ 브이를 1초 유지하세요.";
+}
+
+function drawShootScreen() {
+  renderCamera();
+  updateShooting();
+  if (gestureRunning) updateGesture();
+  else gest.pos = null;
+
+  background(23, 24, 28);
+  const r = PREVIEW;
+  image(camG, r.x, r.y, r.w, r.h);
+  drawShootOverlay(r);
+  if (gestureRunning) drawGestureRing(r);
+
+  noStroke();
+  fill(255);
+  textAlign(LEFT, CENTER);
+  textStyle(NORMAL);
+  textSize(17);
+  text(shootMessage(), 24, 26);
+  if (app.faceFilter !== "none" && faceRunning && !hasFace()) {
+    fill(0, 160);
+    rect(r.x, r.y + r.h - 44, r.w, 44);
+    fill(255);
+    textAlign(CENTER, CENTER);
+    text("얼굴을 화면 가운데로 가져와 주세요", r.x + r.w / 2, r.y + r.h - 22);
+  }
+
+  thumbRects().forEach((t, i) => {
+    const img = app.shots[i];
+    noStroke();
+    if (img) drawCover(window, img, t);
+    else {
+      fill(50);
+      rect(t.x, t.y, t.w, t.h);
+      fill(130);
+      textAlign(CENTER, CENTER);
+      textSize(t.h * 0.35);
+      text(i + 1, t.x + t.w / 2, t.y + t.h / 2);
+    }
+    noFill();
+    strokeWeight(4);
+    if (i === shoot.cut) {
+      stroke(255, 210, 63);
+      rect(t.x, t.y, t.w, t.h);
+    } else if (i === shoot.selected) {
+      stroke(80, 130, 255);
+      rect(t.x, t.y, t.w, t.h);
+    }
+  });
+  if (frameCount % 15 === 0) refreshShootButtons();
+}
+
+function drawComposite(images) {
+  const L = outSize();
+  const k = min((width - 80) / L.w, (height - 40) / L.h);
+  decoView = { x: (width - L.w * k) / 2, y: (height - L.h * k) / 2, k };
+  const g = composeLayout(images, k, true);
+  noStroke();
+  fill(0, 25);
+  rect(decoView.x + 6, decoView.y + 8, g.width, g.height);
+  image(g, decoView.x, decoView.y);
+}
+
+function toOutput(mx, my) {
+  return { x: (mx - decoView.x) / decoView.k, y: (my - decoView.y) / decoView.k };
+}
+
+function drawDecorateScreen() {
+  background(233, 234, 238);
+  drawComposite(app.shots);
+  drawStickerHandles(decoView);
+}
+
+function drawSaveScreen() {
+  background(233, 234, 238);
+  drawComposite(animatedImages(floor(millis() / CLIP_STEP)));
+  noStroke();
+  fill(90);
+  textAlign(LEFT, TOP);
+  textSize(14);
+  text("칸마다 찍기 직전의 움직임이\n되풀이되는 미리보기입니다.", 20, 20);
+}
+</script>
+  <script>
+// ===== sketch.js =====
+// D: 메인 스케치. setup()과 draw()는 이 파일에만 둔다.
+
+// 모두가 함께 쓰는 상태
+let app = {
+  screen: "start", // start, frame, shoot, decorate, save
+  layout: "1x4", // 1x4, 2x3, 2x4
+  eight: false, // 2x4에서 8장 따로 찍기
+  frame: {
+    color: "#111111",
+    pattern: "none", // none, dot, stripe, check
+    bgImage: null,
+    text: "",
+    showDate: true,
+  },
+  gestureOn: true,
+  faceFilter: "none", // none, dog, glasses, blush
+  colorFilter: "none", // none, gray, sepia, warm, cool
+  shots: [], // 컷마다 p5.Image 한 장
+  clips: [], // 컷마다 직전 1.5초 프레임 배열
+  stickers: [],
+  exporting: null, // null, "gif", "video"
+};
+
+let cnv;
+const CANVAS_W = 960;
+const CANVAS_H = 640;
+
+function preload() {
+  // ml5.js가 없어도(오프라인 등) 나머지 기능은 돌아가게 한다
+  if (typeof ml5 !== "undefined") {
+    preloadGesture();
+    preloadFace();
+  }
+}
+
+function setup() {
+  pixelDensity(1);
+  cnv = createCanvas(CANVAS_W, CANVAS_H);
+  cnv.parent("canvasWrap");
+  textFont("Apple SD Gothic Neo, Malgun Gothic, sans-serif");
+  setupCamera();
+  makeDefaultStickers();
+  setupUI();
+  goTo("start");
+}
+
+function draw() {
+  if (app.exporting) {
+    drawExportFrame();
+    return;
+  }
+  manageDetectors();
+
+  if (app.screen === "start") drawStartScreen();
+  else if (app.screen === "frame") drawFramePickScreen();
+  else if (app.screen === "shoot") drawShootScreen();
+  else if (app.screen === "decorate") drawDecorateScreen();
+  else if (app.screen === "save") drawSaveScreen();
+}
+
+// 캔버스 안을 눌렀을 때만 처리한다
+function inCanvas() {
+  return mouseX >= 0 && mouseX <= width && mouseY >= 0 && mouseY <= height;
+}
+
+function mousePressed() {
+  if (app.exporting || !inCanvas()) return;
+  if (app.screen === "frame") pickLayoutAt(mouseX, mouseY);
+  else if (app.screen === "shoot") pickThumbAt(mouseX, mouseY);
+  else if (app.screen === "decorate") {
+    const p = toOutput(mouseX, mouseY);
+    stickerPressed(p.x, p.y, decoView.k);
+  }
+}
+
+function mouseDragged() {
+  if (app.screen !== "decorate" || app.exporting) return;
+  const p = toOutput(mouseX, mouseY);
+  stickerDragged(p.x, p.y);
+}
+
+function mouseReleased() {
+  stickerReleased();
+}
+
+function typingInInput() {
+  const el = document.activeElement;
+  return el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA") && el.type !== "checkbox" && el.type !== "range";
+}
+
+function keyPressed() {
+  if (typingInInput() || app.exporting) return;
+  if (app.screen === "shoot" && key === " ") {
+    onShootButton();
+    return false; // 스페이스바로 페이지가 내려가지 않게
+  }
+  if (app.screen === "decorate" && (keyCode === DELETE || keyCode === BACKSPACE)) {
+    deleteSelectedSticker();
+    return false;
+  }
+}
+</script>
+</body>
+</html>

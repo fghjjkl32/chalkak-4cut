@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>찰칵 네컷</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- p5.js 1.x (ml5.js는 1.x 기준) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.11.11/p5.min.js"></script>
+  <script src="https://unpkg.com/ml5@1.3.1/dist/ml5.min.js"></script>
+</head>
+<body>
+  <header class="top">
+    <h1>찰칵 네컷</h1>
+    <ol class="steps" id="steps">
+      <li data-s="start">시작</li>
+      <li data-s="frame">프레임</li>
+      <li data-s="shoot">촬영</li>
+      <li data-s="decorate">꾸미기</li>
+      <li data-s="save">저장</li>
+    </ol>
+  </header>
+
+  <main class="stage">
+    <div id="canvasWrap"></div>
+
+    <aside class="panel" id="panel">
+      <!-- 시작 -->
+      <section data-for="start">
+        <p class="hint">노트북 카메라로 네컷 사진을 찍습니다. 사진과 영상은 이 브라우저 안에서만 처리되고 어디에도 전송되지 않습니다.</p>
+        <p class="hint" id="camStatus">카메라를 준비하는 중입니다.</p>
+        <button class="big" id="btnStart">촬영 시작</button>
+      </section>
+
+      <!-- 프레임 고르기 -->
+      <section data-for="frame">
+        <p class="hint">왼쪽에서 레이아웃을 눌러 고르세요. 사진 칸 수만큼 촬영합니다.</p>
+        <label class="row" id="eightRow"><input type="checkbox" id="chkEight"> 2×4에서 8장 따로 찍기</label>
+        <button class="big" id="btnToShoot">이 프레임으로 찍기</button>
+        <button class="ghost" id="btnBackStart">처음으로</button>
+      </section>
+
+      <!-- 촬영 -->
+      <section data-for="shoot">
+        <h3>얼굴 필터</h3>
+        <div class="chips" id="faceChips"></div>
+        <h3>색 필터</h3>
+        <div class="chips" id="colorChips"></div>
+        <label class="row"><input type="checkbox" id="chkGesture" checked> 브이 ✌ 손동작으로 촬영</label>
+        <p class="hint" id="shootHint">촬영 버튼, 스페이스바, 또는 브이 손동작을 1초 유지하면 시작합니다.</p>
+        <button class="big" id="btnShoot">촬영</button>
+        <button class="ghost" id="btnRetake" disabled>고른 컷 다시 찍기</button>
+        <button class="big alt" id="btnToDecorate" disabled>꾸미기로</button>
+      </section>
+
+      <!-- 꾸미기 -->
+      <section data-for="decorate">
+        <h3>프레임 색</h3>
+        <div class="swatches" id="swatches"></div>
+        <label class="row">직접 고르기 <span id="pickerSlot"></span></label>
+        <h3>무늬</h3>
+        <div class="chips" id="patternChips"></div>
+        <h3>배경 이미지</h3>
+        <label class="file">이미지 올리기<input type="file" id="bgFile" accept="image/*"></label>
+        <button class="ghost small" id="btnBgClear">배경 이미지 지우기</button>
+        <h3>문구와 날짜</h3>
+        <input type="text" id="caption" maxlength="30" placeholder="예: 우리 조 화이팅">
+        <label class="row"><input type="checkbox" id="chkDate" checked> 날짜 넣기</label>
+        <h3>스티커</h3>
+        <div class="stickers" id="stickerList"></div>
+        <label class="file">짤 올리기 (자동 누끼)<input type="file" id="stickerFile" accept="image/*"></label>
+        <label class="row">누끼 허용 범위 <input type="range" id="tol" min="0" max="120" value="40"> <b id="tolVal">40</b></label>
+        <p class="hint">스티커를 끌어 옮기고, 오른쪽 아래 동그라미를 끌어 크기와 각도를 바꿉니다. Delete 키로 지웁니다.</p>
+        <button class="big" id="btnToSave">완성</button>
+        <button class="ghost" id="btnBackShoot">촬영으로 돌아가기</button>
+      </section>
+
+      <!-- 저장 -->
+      <section data-for="save">
+        <button class="big" id="btnPNG">사진 저장 (PNG)</button>
+        <button class="big alt" id="btnGIF">움직이는 네컷 (GIF)</button>
+        <button class="big alt" id="btnVideo">동영상 저장 (WebM)</button>
+        <p class="hint" id="saveStatus"></p>
+        <p class="hint">동영상은 PC 브라우저에서 재생됩니다. 메신저로 보낼 때는 GIF가 편합니다.</p>
+        <button class="ghost" id="btnBackDecorate">꾸미기로 돌아가기</button>
+        <button class="ghost" id="btnRestart">처음부터 다시</button>
+      </section>
+    </aside>
+  </main>
+
+  <!-- A: 촬영과 저장 -->
+  <script src="camera.js"></script>
+  <script src="export.js"></script>
+  <!-- B: 제스처, 얼굴 필터, 소리 -->
+  <script src="gesture.js"></script>
+  <script src="face.js"></script>
+  <script src="sound.js"></script>
+  <!-- C: 스티커, 누끼, 색 필터 -->
+  <script src="cutout.js"></script>
+  <script src="stickers.js"></script>
+  <script src="filters.js"></script>
+  <!-- D: 프레임, 화면, 메인 -->
+  <script src="frame.js"></script>
+  <script src="ui.js"></script>
+  <script src="sketch.js"></script>
+</body>
+</html>
