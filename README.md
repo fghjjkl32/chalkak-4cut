@@ -4,7 +4,9 @@ p5.js로 만든 웹 네컷 사진 서비스 프로토타입입니다. 조별 프
 
 ## 바로 써 보기
 
-GitHub Pages 주소를 Chrome으로 열고 카메라 권한을 허용하면 됩니다.
+**https://fghjjkl32.github.io/chalkak-4cut/**
+
+Chrome으로 열고 카메라 권한을 허용하면 됩니다.
 
 ## 기능
 
