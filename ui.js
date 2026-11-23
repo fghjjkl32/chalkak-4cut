@@ -23,6 +23,7 @@ function setupUI() {
   makeChips("faceChips", FACE_FILTERS, () => app.faceFilter, (v) => (app.faceFilter = v));
   makeChips("colorChips", mapLabels(COLOR_FILTERS), () => app.colorFilter, (v) => (app.colorFilter = v));
   makeChips("patternChips", PATTERNS, () => app.frame.pattern, (v) => (app.frame.pattern = v));
+  setupPenUI();
 
   // 프레임 색
   const sw = $("swatches");
@@ -97,6 +98,7 @@ function setupUI() {
   $("btnRestart").onclick = () => {
     app.stickers = [];
     selectedSticker = -1;
+    resetPen();
     goTo("start");
   };
 
@@ -167,6 +169,7 @@ function goTo(screen) {
   if (screen === "frame") $("eightRow").style.display = app.layout === "2x4" ? "flex" : "none";
   if (screen === "shoot" && (prev === "frame" || app.shots.length !== shotCount())) resetShots();
   if (screen !== "decorate") selectedSticker = -1;
+  cursor(screen === "decorate" && pen.mode !== "off" ? CROSS : ARROW);
   refreshShootButtons();
 }
 
@@ -393,6 +396,7 @@ function drawDecorateScreen() {
   background(233, 234, 238);
   drawComposite(app.shots);
   drawStickerHandles(decoView);
+  drawPenCursor(decoView);
 }
 
 function drawSaveScreen() {

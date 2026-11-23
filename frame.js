@@ -156,7 +156,10 @@ function composeLayout(images, k, withStickers) {
     }
   });
   drawFooter(g, L);
-  if (withStickers) drawStickers(g);
+  if (withStickers) {
+    drawStickers(g);
+    drawPen(g);
+  }
   g.pop();
   return g;
 }

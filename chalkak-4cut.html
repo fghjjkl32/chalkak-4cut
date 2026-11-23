@@ -88,6 +88,7 @@ button:disabled { opacity: .4; cursor: default; }
 }
 .stickers img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
 
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .row { display: flex; align-items: center; gap: 8px; font-size: 14px; }
 .row input[type=range] { flex: 1; }
 input[type=text] { font: inherit; padding: 9px 10px; border: 1px solid #c9cad2; border-radius: 8px; }
@@ -102,6 +103,7 @@ input[type=text] { font: inherit; padding: 9px 10px; border: 1px solid #c9cad2; 
   cursor: pointer;
 }
 .file input { display: none; }
+
 </style>
   <!-- p5.js 1.x (ml5.js는 1.x 기준) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.11.11/p5.min.js"></script>
@@ -164,6 +166,15 @@ input[type=text] { font: inherit; padding: 9px 10px; border: 1px solid #c9cad2; 
         <h3>문구와 날짜</h3>
         <input type="text" id="caption" maxlength="30" placeholder="예: 우리 조 화이팅">
         <label class="row"><input type="checkbox" id="chkDate" checked> 날짜 넣기</label>
+        <h3>펜 낙서</h3>
+        <div class="chips" id="penModeChips"></div>
+        <div class="swatches" id="penColors"></div>
+        <label class="row">굵기 <input type="range" id="penSize" min="2" max="40" value="12"> <b id="penSizeVal">12</b></label>
+        <div class="pair">
+          <button class="ghost small" id="btnPenUndo">되돌리기</button>
+          <button class="ghost small" id="btnPenClear">낙서 모두 지우기</button>
+        </div>
+        <p class="hint">펜이나 지우개를 고르고 프레임 위를 끌어서 그립니다. 스티커를 옮기려면 펜을 끄세요.</p>
         <h3>스티커</h3>
         <div class="stickers" id="stickerList"></div>
         <label class="file">짤 올리기 (자동 누끼)<input type="file" id="stickerFile" accept="image/*"></label>
@@ -188,7 +199,6 @@ input[type=text] { font: inherit; padding: 9px 10px; border: 1px solid #c9cad2; 
 
   <!-- A: 촬영과 저장 -->
   <script>
-// ===== camera.js =====
 // A: 카메라, 카운트다운, 연속 촬영, 다시 찍기, 컷마다 움직임 모으기
 
 const CAM_W = 640;
@@ -349,9 +359,9 @@ function drawShootOverlay(r) {
   }
   pop();
 }
+
 </script>
   <script>
-// ===== export.js =====
 // A: PNG, GIF, 동영상(WebM) 저장
 
 let exportK = 1; // 결과물 대비 캔버스 배율
@@ -469,10 +479,10 @@ function saveVideo() {
   const ms = max(2, clipLength() * 2 - 2) * CLIP_STEP * 2;
   setTimeout(() => rec.stop(), max(ms, 3000));
 }
+
 </script>
   <!-- B: 제스처, 얼굴 필터, 소리 -->
   <script>
-// ===== gesture.js =====
 // B: ml5.js handPose로 손동작 인식 (브이 = 촬영, 손바닥 = 다음 화면)
 
 let handPose = null;
@@ -574,9 +584,9 @@ function drawGestureRing(r) {
   text(gest.name === "v" ? "✌" : gest.name === "palm" ? "✋" : "", x, y);
   pop();
 }
+
 </script>
   <script>
-// ===== face.js =====
 // B: ml5.js faceMesh로 얼굴을 따라다니는 필터
 
 let faceMesh = null;
@@ -722,9 +732,9 @@ function drawBlush(g, a, b, d, ang) {
     g.pop();
   }
 }
+
 </script>
   <script>
-// ===== sound.js =====
 // B: 셔터 소리 (p5.sound 없이 브라우저 내장 Web Audio로 짧은 소리를 만든다)
 
 let audioCtx = null;
@@ -749,10 +759,10 @@ function playShutter() {
     // 소리가 안 나도 촬영은 계속한다
   }
 }
+
 </script>
   <!-- C: 스티커, 누끼, 색 필터 -->
   <script>
-// ===== cutout.js =====
 // C: 자동 누끼 (가장자리에서부터 배경색과 비슷한 픽셀을 이어서 투명하게)
 
 const CUT_MAX = 500; // 올린 이미지는 이 크기 안으로 줄여서 처리한다
@@ -831,9 +841,9 @@ function trimTransparent(img) {
   if (x1 < 0) return img; // 전부 지워졌으면 그대로 돌려준다
   return img.get(x0, y0, x1 - x0 + 1, y1 - y0 + 1);
 }
+
 </script>
   <script>
-// ===== stickers.js =====
 // C: 스티커 (기본 스티커, 짤 업로드, 옮기기, 크기와 회전, 삭제)
 
 const STK_BASE = 260; // 결과물 기준 스티커 기본 너비
@@ -1051,9 +1061,9 @@ function makeDefaultStickers() {
     return img;
   });
 }
+
 </script>
   <script>
-// ===== filters.js =====
 // C: 색 필터 (캔버스 내장 filter를 써서 미리보기에서도 빠르다)
 
 const COLOR_FILTERS = {
@@ -1069,10 +1079,10 @@ function applyColorFilter(g, name) {
   const f = COLOR_FILTERS[name] || COLOR_FILTERS.none;
   g.drawingContext.filter = f.css;
 }
+
 </script>
   <!-- D: 프레임, 화면, 메인 -->
   <script>
-// ===== frame.js =====
 // D: 레이아웃 계산과 결과물 합치기 (프레임 색, 무늬, 배경 이미지, 날짜와 문구)
 
 const LAYOUTS = {
@@ -1231,13 +1241,143 @@ function composeLayout(images, k, withStickers) {
     }
   });
   drawFooter(g, L);
-  if (withStickers) drawStickers(g);
+  if (withStickers) {
+    drawStickers(g);
+    drawPen(g);
+  }
   g.pop();
   return g;
 }
+
 </script>
   <script>
-// ===== ui.js =====
+// D: 프레임 위에 펜으로 낙서하기와 지우개
+
+const PEN_MODES = { off: "끄기", pen: "펜", eraser: "지우개" };
+const PEN_COLORS = ["#111111", "#ffffff", "#ff3b6b", "#ff9f1c", "#ffd23f", "#2ec4b6", "#3355e0", "#9b5de5"];
+const PEN_UNDO_MAX = 20;
+
+const pen = { mode: "off", color: "#ff3b6b", size: 12 };
+let penG = null; // 결과물 크기의 낙서 층
+let penLast = null;
+let penUndo = [];
+
+// 레이아웃이 바뀌면 결과물 크기도 바뀌므로 낙서 층을 새로 만든다
+function penLayer() {
+  const L = outSize();
+  if (!penG || penG.width !== L.w || penG.height !== L.h) {
+    if (penG) penG.remove();
+    penG = createGraphics(L.w, L.h);
+    penG.pixelDensity(1);
+    penG.clear();
+    penUndo = [];
+  }
+  return penG;
+}
+
+function penActive() {
+  return app.screen === "decorate" && pen.mode !== "off";
+}
+
+function penPressed(x, y) {
+  const g = penLayer();
+  penUndo.push(g.get());
+  if (penUndo.length > PEN_UNDO_MAX) penUndo.shift();
+  penLast = { x, y };
+  penStroke(x, y);
+}
+
+function penDragged(x, y) {
+  if (penLast) penStroke(x, y);
+}
+
+function penReleased() {
+  penLast = null;
+}
+
+function penStroke(x, y) {
+  const g = penLayer();
+  const erasing = pen.mode === "eraser";
+  g.push();
+  if (erasing) g.erase();
+  g.stroke(pen.color);
+  g.strokeWeight(erasing ? pen.size * 2 : pen.size);
+  g.strokeCap(ROUND);
+  g.line(penLast.x, penLast.y, x, y);
+  if (erasing) g.noErase();
+  g.pop();
+  penLast = { x, y };
+}
+
+function undoPen() {
+  const img = penUndo.pop();
+  if (!img || !penG) return;
+  penG.clear();
+  penG.image(img, 0, 0);
+}
+
+function clearPen() {
+  if (!penG) return;
+  penUndo.push(penG.get());
+  if (penUndo.length > PEN_UNDO_MAX) penUndo.shift();
+  penG.clear();
+}
+
+function resetPen() {
+  if (penG) penG.clear();
+  penUndo = [];
+  penLast = null;
+}
+
+// composeLayout 안에서 결과물 좌표로 그린다
+function drawPen(g) {
+  if (!penG) return;
+  const L = outSize();
+  if (penG.width !== L.w || penG.height !== L.h) return;
+  g.image(penG, 0, 0, L.w, L.h);
+}
+
+// 펜 굵기를 캔버스 위에 동그라미로 보여 준다
+function drawPenCursor(view) {
+  if (!penActive() || !inCanvas()) return;
+  const r = (pen.mode === "eraser" ? pen.size * 2 : pen.size) * view.k;
+  push();
+  noFill();
+  stroke(pen.mode === "eraser" ? 90 : pen.color);
+  strokeWeight(1.5);
+  circle(mouseX, mouseY, max(r, 4));
+  pop();
+}
+
+function setupPenUI() {
+  makeChips("penModeChips", PEN_MODES, () => pen.mode, (v) => {
+    pen.mode = v;
+    if (v !== "off") selectedSticker = -1; // 펜을 쓰는 동안 스티커 손잡이를 숨긴다
+    cursor(v === "off" ? ARROW : CROSS);
+  });
+  const box = $("penColors");
+  PEN_COLORS.forEach((c) => {
+    const b = document.createElement("button");
+    b.style.background = c;
+    b.title = c;
+    b.onclick = () => {
+      pen.color = c;
+      if (pen.mode !== "pen") $("penModeChips").querySelector('[data-v="pen"]').click();
+      [...box.children].forEach((x) => x.classList.toggle("on", x.title === c));
+    };
+    box.appendChild(b);
+  });
+  [...box.children].forEach((x) => x.classList.toggle("on", x.title === pen.color));
+  $("penSize").oninput = (e) => {
+    pen.size = Number(e.target.value);
+    $("penSizeVal").textContent = e.target.value;
+  };
+  $("btnPenUndo").onclick = undoPen;
+  $("btnPenClear").onclick = clearPen;
+}
+
+</script>
+  <script>
 // D: 화면 전환, 버튼과 패널, 화면별 그리기
 
 const SCREENS = ["start", "frame", "shoot", "decorate", "save"];
@@ -1263,6 +1403,7 @@ function setupUI() {
   makeChips("faceChips", FACE_FILTERS, () => app.faceFilter, (v) => (app.faceFilter = v));
   makeChips("colorChips", mapLabels(COLOR_FILTERS), () => app.colorFilter, (v) => (app.colorFilter = v));
   makeChips("patternChips", PATTERNS, () => app.frame.pattern, (v) => (app.frame.pattern = v));
+  setupPenUI();
 
   // 프레임 색
   const sw = $("swatches");
@@ -1337,6 +1478,7 @@ function setupUI() {
   $("btnRestart").onclick = () => {
     app.stickers = [];
     selectedSticker = -1;
+    resetPen();
     goTo("start");
   };
 
@@ -1407,6 +1549,7 @@ function goTo(screen) {
   if (screen === "frame") $("eightRow").style.display = app.layout === "2x4" ? "flex" : "none";
   if (screen === "shoot" && (prev === "frame" || app.shots.length !== shotCount())) resetShots();
   if (screen !== "decorate") selectedSticker = -1;
+  cursor(screen === "decorate" && pen.mode !== "off" ? CROSS : ARROW);
   refreshShootButtons();
 }
 
@@ -1633,6 +1776,7 @@ function drawDecorateScreen() {
   background(233, 234, 238);
   drawComposite(app.shots);
   drawStickerHandles(decoView);
+  drawPenCursor(decoView);
 }
 
 function drawSaveScreen() {
@@ -1644,9 +1788,9 @@ function drawSaveScreen() {
   textSize(14);
   text("칸마다 찍기 직전의 움직임이\n되풀이되는 미리보기입니다.", 20, 20);
 }
+
 </script>
   <script>
-// ===== sketch.js =====
 // D: 메인 스케치. setup()과 draw()는 이 파일에만 둔다.
 
 // 모두가 함께 쓰는 상태
@@ -1718,17 +1862,20 @@ function mousePressed() {
   else if (app.screen === "shoot") pickThumbAt(mouseX, mouseY);
   else if (app.screen === "decorate") {
     const p = toOutput(mouseX, mouseY);
-    stickerPressed(p.x, p.y, decoView.k);
+    if (penActive()) penPressed(p.x, p.y);
+    else stickerPressed(p.x, p.y, decoView.k);
   }
 }
 
 function mouseDragged() {
   if (app.screen !== "decorate" || app.exporting) return;
   const p = toOutput(mouseX, mouseY);
-  stickerDragged(p.x, p.y);
+  if (penActive()) penDragged(p.x, p.y);
+  else stickerDragged(p.x, p.y);
 }
 
 function mouseReleased() {
+  penReleased();
   stickerReleased();
 }
 
@@ -1748,6 +1895,7 @@ function keyPressed() {
     return false;
   }
 }
+
 </script>
 </body>
 </html>

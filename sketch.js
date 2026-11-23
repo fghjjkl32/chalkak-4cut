@@ -69,17 +69,20 @@ function mousePressed() {
   else if (app.screen === "shoot") pickThumbAt(mouseX, mouseY);
   else if (app.screen === "decorate") {
     const p = toOutput(mouseX, mouseY);
-    stickerPressed(p.x, p.y, decoView.k);
+    if (penActive()) penPressed(p.x, p.y);
+    else stickerPressed(p.x, p.y, decoView.k);
   }
 }
 
 function mouseDragged() {
   if (app.screen !== "decorate" || app.exporting) return;
   const p = toOutput(mouseX, mouseY);
-  stickerDragged(p.x, p.y);
+  if (penActive()) penDragged(p.x, p.y);
+  else stickerDragged(p.x, p.y);
 }
 
 function mouseReleased() {
+  penReleased();
   stickerReleased();
 }
 

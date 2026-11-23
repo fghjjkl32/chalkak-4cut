@@ -66,6 +66,15 @@
         <h3>문구와 날짜</h3>
         <input type="text" id="caption" maxlength="30" placeholder="예: 우리 조 화이팅">
         <label class="row"><input type="checkbox" id="chkDate" checked> 날짜 넣기</label>
+        <h3>펜 낙서</h3>
+        <div class="chips" id="penModeChips"></div>
+        <div class="swatches" id="penColors"></div>
+        <label class="row">굵기 <input type="range" id="penSize" min="2" max="40" value="12"> <b id="penSizeVal">12</b></label>
+        <div class="pair">
+          <button class="ghost small" id="btnPenUndo">되돌리기</button>
+          <button class="ghost small" id="btnPenClear">낙서 모두 지우기</button>
+        </div>
+        <p class="hint">펜이나 지우개를 고르고 프레임 위를 끌어서 그립니다. 스티커를 옮기려면 펜을 끄세요.</p>
         <h3>스티커</h3>
         <div class="stickers" id="stickerList"></div>
         <label class="file">짤 올리기 (자동 누끼)<input type="file" id="stickerFile" accept="image/*"></label>
@@ -101,6 +110,7 @@
   <script src="filters.js"></script>
   <!-- D: 프레임, 화면, 메인 -->
   <script src="frame.js"></script>
+  <script src="pen.js"></script>
   <script src="ui.js"></script>
   <script src="sketch.js"></script>
 </body>
