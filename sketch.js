@@ -4,7 +4,7 @@
 let app = {
   screen: "start", // start, frame, shoot, decorate, save
   layout: "1x4", // 1x4, 2x3, 2x4
-  eight: false, // 2x4에서 8장 따로 찍기
+  eight: true, // 2x4에서 8장 따로 찍기 (끄면 4장을 찍어 두 줄에 똑같이 넣는다)
   frame: {
     color: "#111111",
     pattern: "none", // none, dot, stripe, check

@@ -10,7 +10,8 @@ const CLIP_MAX = 15; // 1.5초
 let video; // 실제 카메라
 let camReady = false;
 let camG; // 좌우 반전, 색 필터, 얼굴 필터까지 입힌 카메라 한 장
-let fakeCam; // 카메라를 쓸 수 없을 때 보여 줄 연습 화면
+let fakeCam; // 카메라를 쓸 수 없을 때 보여 줄 안내 화면
+let camFailed = false;
 
 let shoot = {
   phase: "idle", // idle, count, flash, done
@@ -33,33 +34,18 @@ function setupCamera() {
   video.hide();
 }
 
-// 카메라가 없을 때: 움직이는 연습 화면 (거울 반전되므로 글자는 미리 뒤집어 그린다)
+// 카메라가 없을 때: 어두운 화면에 안내 문구만 (거울 반전되므로 글자는 미리 뒤집어 그린다)
 function drawFakeCam() {
   const g = fakeCam;
-  const t = millis() / 1000;
   g.push();
-  g.background(70, 90, 140);
+  g.background(30, 32, 38);
   g.noStroke();
-  g.fill(255, 255, 255, 30);
-  for (let i = 0; i < 6; i++) g.circle((i * 140 + t * 40) % 760 - 60, 90 + (i % 2) * 300, 120);
-  const cx = CAM_W / 2 + sin(t * 1.3) * 60;
-  const cy = CAM_H / 2 + 20 + cos(t * 1.7) * 12;
-  g.fill(255, 226, 198);
-  g.ellipse(cx, cy, 190, 210);
-  g.fill(30);
-  g.ellipse(cx - 40, cy - 20, 18, 22);
-  g.ellipse(cx + 40, cy - 20, 18, 22);
-  g.noFill();
-  g.stroke(30);
-  g.strokeWeight(5);
-  g.arc(cx, cy + 30, 70, 40, 0.2, PI - 0.2);
-  g.noStroke();
-  g.fill(255);
+  g.fill(200);
   g.textAlign(CENTER, CENTER);
-  g.textSize(20);
+  g.textSize(22);
   g.translate(CAM_W, 0);
   g.scale(-1, 1);
-  g.text("카메라 없음 · 연습 화면", CAM_W / 2, 36);
+  g.text(camFailed ? "카메라를 쓸 수 없습니다" : "카메라를 준비하는 중입니다", CAM_W / 2, CAM_H - 50);
   g.pop();
   return g;
 }

@@ -3,7 +3,7 @@
 const LAYOUTS = {
   "1x4": { label: "1×4", w: 600, h: 1800, cols: 1, rows: 4, shots: 4 },
   "2x3": { label: "2×3", w: 1200, h: 1800, cols: 2, rows: 3, shots: 6 },
-  "2x4": { label: "2×4", w: 1200, h: 1800, cols: 2, rows: 4, shots: 4 },
+  "2x4": { label: "2×4", w: 1200, h: 1800, cols: 2, rows: 4, shots: 8 },
 };
 const MARGIN = 36;
 const GAP = 18;
@@ -29,7 +29,7 @@ function cellRects(key = app.layout) {
 }
 
 function shotCount() {
-  if (app.layout === "2x4" && app.eight) return 8;
+  if (app.layout === "2x4") return app.eight ? 8 : 4;
   return LAYOUTS[app.layout].shots;
 }
 

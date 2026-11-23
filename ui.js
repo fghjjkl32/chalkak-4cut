@@ -13,7 +13,7 @@ function setupUI() {
   $("btnStart").onclick = () => goTo("frame");
   $("btnBackStart").onclick = () => goTo("start");
   $("btnToShoot").onclick = () => goTo("shoot");
-  $("chkEight").onchange = (e) => (app.eight = e.target.checked);
+  $("chkTwin").onchange = (e) => (app.eight = !e.target.checked);
 
   $("btnShoot").onclick = onShootButton;
   $("btnRetake").onclick = () => retake(shoot.selected);
@@ -120,8 +120,9 @@ function setupUI() {
   }
   setTimeout(() => {
     if (!camReady) {
+      camFailed = true;
       $("camStatus").textContent =
-        "카메라를 쓸 수 없어 연습 화면으로 진행합니다. 주소창의 카메라 아이콘에서 권한을 허용한 뒤 새로고침하면 실제 카메라로 찍습니다.";
+        "카메라를 쓸 수 없습니다. 주소창의 카메라 아이콘에서 권한을 허용한 뒤 새로고침해 주세요.";
     }
   }, 5000);
   fitDisplay();
@@ -282,7 +283,7 @@ function drawFramePickScreen() {
     textStyle(NORMAL);
     textSize(15);
     fill(90);
-    const n = c.key === "2x4" ? (app.eight ? "8장 따로" : "4장 · 두 줄로 나눠 갖기") : `${L.shots}장`;
+    const n = c.key === "2x4" ? (app.eight ? "8장" : "4장 · 같은 사진 두 줄") : `${L.shots}장`;
     text(n, c.x + c.w / 2, c.y + c.h - 34);
   }
 }

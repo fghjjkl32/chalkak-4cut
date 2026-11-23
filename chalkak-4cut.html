@@ -135,7 +135,7 @@ input[type=text] { font: inherit; padding: 9px 10px; border: 1px solid #c9cad2; 
       <!-- 프레임 고르기 -->
       <section data-for="frame">
         <p class="hint">왼쪽에서 레이아웃을 눌러 고르세요. 사진 칸 수만큼 촬영합니다.</p>
-        <label class="row" id="eightRow"><input type="checkbox" id="chkEight"> 2×4에서 8장 따로 찍기</label>
+        <label class="row" id="eightRow"><input type="checkbox" id="chkTwin"> 같은 사진 두 줄로 찍기 (4장)</label>
         <button class="big" id="btnToShoot">이 프레임으로 찍기</button>
         <button class="ghost" id="btnBackStart">처음으로</button>
       </section>
@@ -211,7 +211,8 @@ const CLIP_MAX = 15; // 1.5초
 let video; // 실제 카메라
 let camReady = false;
 let camG; // 좌우 반전, 색 필터, 얼굴 필터까지 입힌 카메라 한 장
-let fakeCam; // 카메라를 쓸 수 없을 때 보여 줄 연습 화면
+let fakeCam; // 카메라를 쓸 수 없을 때 보여 줄 안내 화면
+let camFailed = false;
 
 let shoot = {
   phase: "idle", // idle, count, flash, done
@@ -234,33 +235,18 @@ function setupCamera() {
   video.hide();
 }
 
-// 카메라가 없을 때: 움직이는 연습 화면 (거울 반전되므로 글자는 미리 뒤집어 그린다)
+// 카메라가 없을 때: 어두운 화면에 안내 문구만 (거울 반전되므로 글자는 미리 뒤집어 그린다)
 function drawFakeCam() {
   const g = fakeCam;
-  const t = millis() / 1000;
   g.push();
-  g.background(70, 90, 140);
+  g.background(30, 32, 38);
   g.noStroke();
-  g.fill(255, 255, 255, 30);
-  for (let i = 0; i < 6; i++) g.circle((i * 140 + t * 40) % 760 - 60, 90 + (i % 2) * 300, 120);
-  const cx = CAM_W / 2 + sin(t * 1.3) * 60;
-  const cy = CAM_H / 2 + 20 + cos(t * 1.7) * 12;
-  g.fill(255, 226, 198);
-  g.ellipse(cx, cy, 190, 210);
-  g.fill(30);
-  g.ellipse(cx - 40, cy - 20, 18, 22);
-  g.ellipse(cx + 40, cy - 20, 18, 22);
-  g.noFill();
-  g.stroke(30);
-  g.strokeWeight(5);
-  g.arc(cx, cy + 30, 70, 40, 0.2, PI - 0.2);
-  g.noStroke();
-  g.fill(255);
+  g.fill(200);
   g.textAlign(CENTER, CENTER);
-  g.textSize(20);
+  g.textSize(22);
   g.translate(CAM_W, 0);
   g.scale(-1, 1);
-  g.text("카메라 없음 · 연습 화면", CAM_W / 2, 36);
+  g.text(camFailed ? "카메라를 쓸 수 없습니다" : "카메라를 준비하는 중입니다", CAM_W / 2, CAM_H - 50);
   g.pop();
   return g;
 }
@@ -1088,7 +1074,7 @@ function applyColorFilter(g, name) {
 const LAYOUTS = {
   "1x4": { label: "1×4", w: 600, h: 1800, cols: 1, rows: 4, shots: 4 },
   "2x3": { label: "2×3", w: 1200, h: 1800, cols: 2, rows: 3, shots: 6 },
-  "2x4": { label: "2×4", w: 1200, h: 1800, cols: 2, rows: 4, shots: 4 },
+  "2x4": { label: "2×4", w: 1200, h: 1800, cols: 2, rows: 4, shots: 8 },
 };
 const MARGIN = 36;
 const GAP = 18;
@@ -1114,7 +1100,7 @@ function cellRects(key = app.layout) {
 }
 
 function shotCount() {
-  if (app.layout === "2x4" && app.eight) return 8;
+  if (app.layout === "2x4") return app.eight ? 8 : 4;
   return LAYOUTS[app.layout].shots;
 }
 
@@ -1393,7 +1379,7 @@ function setupUI() {
   $("btnStart").onclick = () => goTo("frame");
   $("btnBackStart").onclick = () => goTo("start");
   $("btnToShoot").onclick = () => goTo("shoot");
-  $("chkEight").onchange = (e) => (app.eight = e.target.checked);
+  $("chkTwin").onchange = (e) => (app.eight = !e.target.checked);
 
   $("btnShoot").onclick = onShootButton;
   $("btnRetake").onclick = () => retake(shoot.selected);
@@ -1500,8 +1486,9 @@ function setupUI() {
   }
   setTimeout(() => {
     if (!camReady) {
+      camFailed = true;
       $("camStatus").textContent =
-        "카메라를 쓸 수 없어 연습 화면으로 진행합니다. 주소창의 카메라 아이콘에서 권한을 허용한 뒤 새로고침하면 실제 카메라로 찍습니다.";
+        "카메라를 쓸 수 없습니다. 주소창의 카메라 아이콘에서 권한을 허용한 뒤 새로고침해 주세요.";
     }
   }, 5000);
   fitDisplay();
@@ -1662,7 +1649,7 @@ function drawFramePickScreen() {
     textStyle(NORMAL);
     textSize(15);
     fill(90);
-    const n = c.key === "2x4" ? (app.eight ? "8장 따로" : "4장 · 두 줄로 나눠 갖기") : `${L.shots}장`;
+    const n = c.key === "2x4" ? (app.eight ? "8장" : "4장 · 같은 사진 두 줄") : `${L.shots}장`;
     text(n, c.x + c.w / 2, c.y + c.h - 34);
   }
 }
@@ -1797,7 +1784,7 @@ function drawSaveScreen() {
 let app = {
   screen: "start", // start, frame, shoot, decorate, save
   layout: "1x4", // 1x4, 2x3, 2x4
-  eight: false, // 2x4에서 8장 따로 찍기
+  eight: true, // 2x4에서 8장 따로 찍기 (끄면 4장을 찍어 두 줄에 똑같이 넣는다)
   frame: {
     color: "#111111",
     pattern: "none", // none, dot, stripe, check
